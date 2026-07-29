@@ -1,0 +1,6 @@
+# Netlify configuration for Next.js
+# Netlify auto-detects Next.js and uses the Next.js Runtime
+
+[build]
+command = "npm run build"
+# Output is handled automatically by Netlify's Next.js Runtime
