@@ -1,0 +1,72 @@
+@import "tailwindcss";
+
+@theme {
+  --color-champagne: #f4efe6;
+  --color-gold: #e2b96e;
+  --color-gold-bright: #ffffff;
+  --font-display: var(--font-satoshi), "Space Grotesk", sans-serif;
+  --font-body: var(--font-jakarta), sans-serif;
+}
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  color: var(--color-champagne);
+  font-family: var(--font-body);
+}
+
+/* Fixed ambient mesh behind the whole app: two floating radial glows over bg-slate-950 */
+.ambient-mesh {
+  position: fixed;
+  inset: 0;
+  z-index: -10;
+  pointer-events: none;
+  background-image:
+    radial-gradient(ellipse 900px 700px at 12% 8%, rgba(30, 41, 59, 0.4), transparent 60%),
+    radial-gradient(ellipse 1000px 800px at 88% 92%, rgba(59, 130, 246, 0.1), transparent 60%);
+}
+
+/* Reusable glass + glass-gold surfaces, shared by nav, badges and bento cards */
+.glass {
+  background:
+    linear-gradient(rgba(19, 27, 42, 0.55), rgba(19, 27, 42, 0.55)) padding-box,
+    linear-gradient(180deg, rgba(255, 255, 255, 0.35), rgba(255, 255, 255, 0)) border-box;
+  border: 1px solid transparent;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+.glass-gold {
+  background:
+    radial-gradient(circle at var(--glow-pos, 20% -10%), rgba(226, 185, 110, 0.12), transparent 45%) padding-box,
+    linear-gradient(rgba(19, 27, 42, 0.55), rgba(19, 27, 42, 0.55)) padding-box,
+    linear-gradient(180deg, rgba(255, 255, 255, 0.35), rgba(255, 255, 255, 0)) border-box;
+  border: 1px solid transparent;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+.glass-gold-hover:hover {
+  box-shadow:
+    0 0 48px rgba(226, 185, 110, 0.25),
+    inset 0 0 0 1px rgba(226, 185, 110, 0.2);
+}
+
+.text-shine {
+  background: linear-gradient(180deg, #ffffff 0%, #e2b96e 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

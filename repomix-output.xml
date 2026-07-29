@@ -1,0 +1,1877 @@
+This file is a merged representation of the entire codebase, combined into a single document by Repomix.
+
+<file_summary>
+This section contains a summary of this file.
+
+<purpose>
+This file contains a packed representation of the entire repository's contents.
+It is designed to be easily consumable by AI systems for analysis, code review,
+or other automated processes.
+</purpose>
+
+<file_format>
+The content is organized as follows:
+1. This summary section
+2. Repository information
+3. Directory structure
+4. Repository files (if enabled)
+5. Multiple file entries, each consisting of:
+  - File path as an attribute
+  - Full contents of the file
+</file_format>
+
+<usage_guidelines>
+- This file should be treated as read-only. Any changes should be made to the
+  original repository files, not this packed version.
+- When processing this file, use the file path to distinguish
+  between different files in the repository.
+- Be aware that this file may contain sensitive information. Handle it with
+  the same level of security as you would the original repository.
+</usage_guidelines>
+
+<notes>
+- Some files may have been excluded based on .gitignore rules and Repomix's configuration
+- Binary files are not included in this packed representation. Please refer to the Repository Structure section for a complete list of file paths, including binary files
+- Files matching patterns in .gitignore are excluded
+- Files matching default ignore patterns are excluded
+- Files are sorted by Git change count (files with more changes are at the bottom)
+</notes>
+
+</file_summary>
+
+<directory_structure>
+app/
+  agent-portal/
+    page.tsx
+  api/
+    checkout/
+      route.ts
+  booking/
+    success/
+      page.tsx
+    BookingFlow.tsx
+    page.tsx
+  components/
+    BentoCard.tsx
+    Contact.tsx
+    Footer.tsx
+    Hero.tsx
+    HowItWorks.tsx
+    Nav.tsx
+    PricingModal.tsx
+    PricingSection.tsx
+    Reveal.tsx
+    Testimonial.tsx
+    VideoPreviewBuilder.tsx
+  favicon.ico
+  globals.css
+  layout.tsx
+  page.tsx
+lib/
+  stripe.ts
+  utils.ts
+public/
+  file.svg
+  globe.svg
+  next.svg
+  vercel.svg
+  window.svg
+.gitignore
+AGENTS.md
+CLAUDE.md
+eslint.config.mjs
+next.config.ts
+package.json
+postcss.config.mjs
+README.md
+tsconfig.json
+</directory_structure>
+
+<files>
+This section contains the contents of the repository's files.
+
+<file path="app/agent-portal/page.tsx">
+import type { Metadata } from "next";
+import Link from "next/link";
+import { ArrowLeft, LayoutDashboard } from "lucide-react";
+import { Reveal } from "../components/Reveal";
+
+export const metadata: Metadata = {
+  title: "Agent Portal | PropertyWalk",
+  description: "Order history, downloads, and account management for PropertyWalk agents.",
+};
+
+export default function AgentPortalPage() {
+  return (
+    <div className="mx-auto flex min-h-[70vh] max-w-lg flex-col items-center justify-center px-6 py-24 text-center">
+      <Link
+        href="/"
+        className="mb-10 inline-flex items-center gap-2 self-start text-sm text-slate-400 transition-colors hover:text-champagne"
+      >
+        <ArrowLeft className="h-4 w-4" />
+        Back to PropertyWalk
+      </Link>
+
+      <Reveal>
+        <div className="glass mx-auto flex h-14 w-14 items-center justify-center rounded-full">
+          <LayoutDashboard className="h-6 w-6 text-gold" strokeWidth={1.5} />
+        </div>
+        <h1 className="font-display mt-6 text-3xl font-bold tracking-tight text-champagne">
+          Agent Portal
+        </h1>
+        <p className="mt-4 text-slate-400">
+          Account login, order history, and video downloads for agents are on the roadmap
+          and not built yet. This route is a placeholder, not a working sign-in, wiring up
+          real accounts needs an auth and data decision first.
+        </p>
+        <p className="mt-6">
+          {/* Replace with your contact email */}
+          <a
+            href="mailto:[EMAIL_PLACEHOLDER]"
+            className="font-semibold text-champagne underline decoration-white/20 underline-offset-4 transition-colors hover:text-gold"
+          >
+            Email us
+          </a>
+          <span className="text-slate-500"> to check on an existing order in the meantime.</span>
+        </p>
+      </Reveal>
+    </div>
+  );
+}
+</file>
+
+<file path="app/api/checkout/route.ts">
+import { NextRequest, NextResponse } from "next/server";
+import { getStripe, STRIPE_PRICE_IDS, type PlanId } from "@/lib/stripe";
+
+export async function POST(req: NextRequest) {
+  let body: {
+    plan?: string;
+    propertyName?: string;
+    propertyType?: string;
+    name?: string;
+    phone?: string;
+  };
+
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid request body." }, { status: 400 });
+  }
+
+  const { plan, propertyName, propertyType, name, phone } = body;
+
+  if (plan !== "starter" && plan !== "pro") {
+    return NextResponse.json(
+      { error: "plan must be 'starter' or 'pro'." },
+      { status: 400 }
+    );
+  }
+
+  const priceId = STRIPE_PRICE_IDS[plan as PlanId];
+  if (!priceId) {
+    return NextResponse.json(
+      {
+        error: `No Stripe price configured for plan '${plan}'. Set STRIPE_PRICE_${plan.toUpperCase()} in .env.local.`,
+      },
+      { status: 500 }
+    );
+  }
+
+  if (!phone || phone.trim().length === 0) {
+    return NextResponse.json({ error: "A phone number is required." }, { status: 400 });
+  }
+
+  const origin = req.headers.get("origin") ?? new URL(req.url).origin;
+
+  // Generate a placeholder email for Stripe (which requires it)
+  // Format: phone@propertywalk.local (not used for actual email communication)
+  const placeholderEmail = `${phone?.replace(/\D/g, "")}@propertywalk.local`;
+
+  try {
+    const stripe = getStripe();
+    const session = await stripe.checkout.sessions.create({
+      mode: "payment",
+      line_items: [{ price: priceId, quantity: 1 }],
+      customer_email: placeholderEmail,
+      success_url: `${origin}/booking/success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${origin}/booking`,
+      metadata: {
+        plan,
+        property_name: propertyName ?? "",
+        property_type: propertyType ?? "",
+        contact_name: name ?? "",
+        contact_phone: phone ?? "",
+      },
+    });
+
+    if (!session.url) {
+      return NextResponse.json(
+        { error: "Stripe did not return a checkout URL." },
+        { status: 502 }
+      );
+    }
+
+    return NextResponse.json({ url: session.url });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Unknown error creating checkout session.";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}
+</file>
+
+<file path="app/booking/success/page.tsx">
+import type { Metadata } from "next";
+import Link from "next/link";
+import { CheckCircle2 } from "lucide-react";
+import { getStripe } from "@/lib/stripe";
+
+export const metadata: Metadata = {
+  title: "Order Confirmed | PropertyWalk",
+};
+
+export default async function BookingSuccessPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ session_id?: string }>;
+}) {
+  const { session_id: sessionId } = await searchParams;
+
+  let phone: string | null = null;
+  let plan: string | null = null;
+  let propertyName: string | null = null;
+  let paid = false;
+
+  if (sessionId) {
+    try {
+      const stripe = getStripe();
+      const session = await stripe.checkout.sessions.retrieve(sessionId);
+      phone = session.metadata?.contact_phone ?? null;
+      plan = session.metadata?.plan ?? null;
+      propertyName = session.metadata?.property_name || null;
+      paid = session.payment_status === "paid";
+    } catch {
+      // Session lookup failed (bad/expired id). Fall through to the generic confirmation below.
+    }
+  }
+
+  return (
+    <div className="mx-auto flex min-h-[70vh] max-w-lg flex-col items-center justify-center px-6 py-24 text-center">
+      <div className="glass mx-auto flex h-14 w-14 items-center justify-center rounded-full">
+        <CheckCircle2 className="h-7 w-7 text-gold" strokeWidth={1.5} />
+      </div>
+
+      <h1 className="font-display mt-6 text-3xl font-bold tracking-tight text-champagne">
+        {paid ? "You're all set" : "Order received"}
+      </h1>
+
+      <p className="mt-4 text-slate-400">
+        {paid
+          ? "Payment confirmed. We'll have your walkthrough video ready within 24 hours."
+          : "We received your order. If payment doesn't show as confirmed shortly, check your email or contact us."}
+      </p>
+
+      {(plan || propertyName || phone) && (
+        <dl className="glass mt-8 w-full rounded-xl p-6 text-left text-sm">
+          {plan && (
+            <div className="flex justify-between border-b border-white/10 py-2 first:pt-0">
+              <dt className="text-slate-400">Package</dt>
+              <dd className="font-semibold capitalize text-champagne">{plan}</dd>
+            </div>
+          )}
+          {propertyName && (
+            <div className="flex justify-between border-b border-white/10 py-2">
+              <dt className="text-slate-400">Property</dt>
+              <dd className="font-semibold text-champagne">{propertyName}</dd>
+            </div>
+          )}
+          {phone && (
+            <div className="flex justify-between py-2 last:border-none">
+              <dt className="text-slate-400">Contact number</dt>
+              <dd className="font-semibold text-champagne">{phone}</dd>
+            </div>
+          )}
+        </dl>
+      )}
+
+      <Link
+        href="/"
+        className="mt-10 inline-flex items-center rounded-lg bg-gold px-6 py-3 font-semibold text-slate-950 transition-shadow hover:shadow-[0_0_20px_rgba(226,185,110,0.6)]"
+      >
+        Back to PropertyWalk
+      </Link>
+    </div>
+  );
+}
+</file>
+
+<file path="app/booking/BookingFlow.tsx">
+"use client";
+
+import { useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { AnimatePresence, motion } from "framer-motion";
+import { AlertCircle, ArrowLeft, ArrowRight, Check, Home, Loader2, MapPin, Phone } from "lucide-react";
+import Link from "next/link";
+
+type PlanId = "starter" | "pro";
+
+const PLANS: Record<PlanId, { name: string; price: string; blurb: string }> = {
+  starter: { name: "Starter", price: "$49", blurb: "5 photos in, 1 video out" },
+  pro: { name: "Pro", price: "$89", blurb: "10 photos in, 2 videos out" },
+};
+
+const STEP_LABELS = ["Package", "Property", "Contact", "Review"];
+
+export function BookingFlow() {
+  const searchParams = useSearchParams();
+  const preselected = searchParams.get("plan");
+  const initialPlan: PlanId | null =
+    preselected === "starter" || preselected === "pro" ? preselected : null;
+
+  const [step, setStep] = useState(0);
+  const [plan, setPlan] = useState<PlanId | null>(initialPlan);
+  const [propertyName, setPropertyName] = useState("");
+  const [propertyType, setPropertyType] = useState("MLS listing");
+  const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [checkoutError, setCheckoutError] = useState<string | null>(null);
+
+  const canAdvance =
+    (step === 0 && plan !== null) ||
+    (step === 1 && propertyName.trim().length > 0) ||
+    (step === 2 && name.trim().length > 0 && phone.trim().length > 0) ||
+    step === 3;
+
+  function next() {
+    if (canAdvance) setStep((s) => Math.min(s + 1, STEP_LABELS.length - 1));
+  }
+  function back() {
+    setStep((s) => Math.max(s - 1, 0));
+  }
+
+  async function startCheckout() {
+    if (!plan) return;
+    setSubmitting(true);
+    setCheckoutError(null);
+    try {
+      const res = await fetch("/api/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ plan, propertyName, propertyType, name, phone }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.url) {
+        throw new Error(data.error || "Could not start checkout.");
+      }
+      window.location.href = data.url;
+    } catch (err) {
+      setCheckoutError(err instanceof Error ? err.message : "Could not start checkout.");
+      setSubmitting(false);
+    }
+  }
+
+  const selectedPlan = plan ? PLANS[plan] : null;
+
+  return (
+    <div className="mx-auto max-w-2xl px-6 py-16 md:py-24">
+      <Link
+        href="/"
+        className="mb-8 inline-flex items-center gap-2 text-sm text-slate-400 transition-colors hover:text-champagne"
+      >
+        <ArrowLeft className="h-4 w-4" />
+        Back to PropertyWalk
+      </Link>
+
+      <h1 className="font-display text-3xl font-bold tracking-tight text-champagne sm:text-4xl">
+        Book Your Walkthrough
+      </h1>
+
+      {/* Step indicator */}
+      <div className="mt-8 flex items-center gap-2">
+        {STEP_LABELS.map((label, i) => (
+          <div key={label} className="flex flex-1 items-center gap-2">
+            <div
+              className={`flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full border text-xs font-bold transition-colors ${
+                i <= step
+                  ? "border-gold bg-gold text-slate-950"
+                  : "border-white/15 text-slate-500"
+              }`}
+            >
+              {i < step ? <Check className="h-4 w-4" /> : i + 1}
+            </div>
+            {i < STEP_LABELS.length - 1 && (
+              <div
+                className={`h-px flex-1 transition-colors ${
+                  i < step ? "bg-gold" : "bg-white/10"
+                }`}
+              />
+            )}
+          </div>
+        ))}
+      </div>
+
+      <div className="glass-gold relative mt-8 min-h-[320px] overflow-hidden rounded-2xl p-8">
+        <AnimatePresence mode="wait">
+          {step === 0 && (
+            <motion.div
+              key="plan"
+              initial={{ opacity: 0, x: 24 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -24 }}
+              transition={{ duration: 0.3 }}
+            >
+              <h2 className="mb-6 text-lg font-semibold text-champagne">Choose your package</h2>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                {(Object.keys(PLANS) as PlanId[]).map((id) => {
+                  const p = PLANS[id];
+                  const active = plan === id;
+                  return (
+                    <motion.button
+                      key={id}
+                      onClick={() => setPlan(id)}
+                      whileHover={{ y: -2, scale: 1.01 }}
+                      whileTap={{ y: 0, scale: 0.99 }}
+                      className={`rounded-xl border p-5 text-left transition-colors ${
+                        active
+                          ? "border-gold bg-gold/10"
+                          : "border-white/12 hover:border-white/25"
+                      }`}
+                    >
+                      <p className="font-semibold text-champagne">{p.name}</p>
+                      <p className="text-shine font-display mt-1 text-3xl font-bold">
+                        {p.price}
+                      </p>
+                      <p className="mt-2 text-sm text-slate-400">{p.blurb}</p>
+                    </motion.button>
+                  );
+                })}
+              </div>
+            </motion.div>
+          )}
+
+          {step === 1 && (
+            <motion.div
+              key="property"
+              initial={{ opacity: 0, x: 24 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -24 }}
+              transition={{ duration: 0.3 }}
+            >
+              <h2 className="mb-6 flex items-center gap-2 text-lg font-semibold text-champagne">
+                <Home className="h-5 w-5 text-gold" />
+                Property details
+              </h2>
+              <label className="mb-1 block text-sm font-medium text-slate-300">
+                Property nickname or address
+              </label>
+              <input
+                value={propertyName}
+                onChange={(e) => setPropertyName(e.target.value)}
+                placeholder="e.g. 42 Maple St, or “Downtown Loft”"
+                className="w-full rounded-lg border border-white/15 bg-white/5 px-4 py-3 text-champagne placeholder:text-slate-500 outline-none transition-colors focus:border-gold"
+              />
+              <label className="mb-1 mt-5 block text-sm font-medium text-slate-300">
+                Listing type
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {["MLS listing", "Airbnb", "Other rental"].map((t) => (
+                  <button
+                    key={t}
+                    onClick={() => setPropertyType(t)}
+                    className={`rounded-full border px-4 py-2 text-sm transition-colors ${
+                      propertyType === t
+                        ? "border-gold bg-gold/10 text-champagne"
+                        : "border-white/15 text-slate-400 hover:border-white/30"
+                    }`}
+                  >
+                    {t}
+                  </button>
+                ))}
+              </div>
+            </motion.div>
+          )}
+
+          {step === 2 && (
+            <motion.div
+              key="contact"
+              initial={{ opacity: 0, x: 24 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -24 }}
+              transition={{ duration: 0.3 }}
+            >
+              <h2 className="mb-6 flex items-center gap-2 text-lg font-semibold text-champagne">
+                <Phone className="h-5 w-5 text-gold" />
+                Your contact info
+              </h2>
+              <label className="mb-1 block text-sm font-medium text-slate-300">Name</label>
+              <input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Jordan Casey"
+                className="w-full rounded-lg border border-white/15 bg-white/5 px-4 py-3 text-champagne placeholder:text-slate-500 outline-none transition-colors focus:border-gold"
+              />
+              <label className="mb-1 mt-5 block text-sm font-medium text-slate-300">Phone Number</label>
+              <input
+                type="tel"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="226 577 9768"
+                className="w-full rounded-lg border border-white/15 bg-white/5 px-4 py-3 text-champagne placeholder:text-slate-500 outline-none transition-colors focus:border-gold"
+              />
+              <p className="mt-3 text-xs text-slate-500">
+                We&apos;ll call or text you with delivery updates.
+              </p>
+            </motion.div>
+          )}
+
+          {step === 3 && selectedPlan && (
+            <motion.div
+              key="review"
+              initial={{ opacity: 0, x: 24 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -24 }}
+              transition={{ duration: 0.3 }}
+            >
+              <h2 className="mb-6 text-lg font-semibold text-champagne">Review your order</h2>
+              <dl className="flex flex-col gap-4 text-sm">
+                <div className="flex items-center justify-between border-b border-white/10 pb-4">
+                  <dt className="text-slate-400">Package</dt>
+                  <dd className="font-semibold text-champagne">
+                    {selectedPlan.name} &middot; {selectedPlan.price}
+                  </dd>
+                </div>
+                <div className="flex items-center justify-between border-b border-white/10 pb-4">
+                  <dt className="flex items-center gap-1.5 text-slate-400">
+                    <MapPin className="h-4 w-4" /> Property
+                  </dt>
+                  <dd className="font-semibold text-champagne">
+                    {propertyName} ({propertyType})
+                  </dd>
+                </div>
+                <div className="flex items-center justify-between pb-2">
+                  <dt className="text-slate-400">Contact</dt>
+                  <dd className="text-right font-semibold text-champagne">
+                    {name}
+                    <br />
+                    <span className="font-normal text-slate-400">{phone}</span>
+                  </dd>
+                </div>
+              </dl>
+
+              {checkoutError && (
+                <div className="mt-6 flex items-start gap-2 rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-300">
+                  <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0" />
+                  {checkoutError}
+                </div>
+              )}
+
+              <motion.div
+                className="mt-8"
+                whileHover={submitting ? undefined : { y: -2, scale: 1.01 }}
+                whileTap={submitting ? undefined : { y: 0, scale: 0.98 }}
+              >
+                <button
+                  onClick={startCheckout}
+                  disabled={submitting}
+                  className="flex w-full items-center justify-center gap-2 rounded-lg bg-gold px-6 py-4 font-semibold text-slate-950 transition-shadow hover:shadow-[0_0_20px_rgba(226,185,110,0.6)] disabled:cursor-not-allowed disabled:opacity-70"
+                >
+                  {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
+                  {submitting ? "Redirecting to Stripe…" : "Continue to Payment"}
+                </button>
+              </motion.div>
+              <p className="mt-3 text-center text-xs text-slate-500">
+                You&apos;ll complete payment securely via Stripe Checkout.
+              </p>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
+      {step < 3 && (
+        <div className="mt-6 flex items-center justify-between">
+          <button
+            onClick={back}
+            disabled={step === 0}
+            className="inline-flex items-center gap-2 text-sm font-semibold text-slate-400 transition-colors hover:text-champagne disabled:opacity-0"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back
+          </button>
+          <motion.button
+            onClick={next}
+            disabled={!canAdvance}
+            whileHover={canAdvance ? { y: -2, scale: 1.02 } : undefined}
+            whileTap={canAdvance ? { y: 0, scale: 0.98 } : undefined}
+            className="inline-flex items-center gap-2 rounded-lg bg-gold px-6 py-3 font-semibold text-slate-950 transition-opacity disabled:cursor-not-allowed disabled:opacity-30"
+          >
+            Continue
+            <ArrowRight className="h-4 w-4" />
+          </motion.button>
+        </div>
+      )}
+    </div>
+  );
+}
+</file>
+
+<file path="app/booking/page.tsx">
+import type { Metadata } from "next";
+import { Suspense } from "react";
+import { BookingFlow } from "./BookingFlow";
+
+export const metadata: Metadata = {
+  title: "Book Your Walkthrough | PropertyWalk",
+  description: "Choose a package and book your property walkthrough video.",
+};
+
+export default function BookingPage() {
+  return (
+    <Suspense fallback={null}>
+      <BookingFlow />
+    </Suspense>
+  );
+}
+</file>
+
+<file path="app/components/BentoCard.tsx">
+"use client";
+
+import { motion } from "framer-motion";
+import type { CSSProperties, ReactNode } from "react";
+import { cn } from "@/lib/utils";
+
+export function BentoCard({
+  children,
+  className,
+  glowPosition = "20% -10%",
+  as: Tag = "div",
+}: {
+  children: ReactNode;
+  className?: string;
+  glowPosition?: string;
+  as?: "div" | "article";
+}) {
+  return (
+    <motion.div
+      className={cn(
+        "glass-gold glass-gold-hover relative overflow-hidden rounded-2xl transition-shadow duration-300",
+        className
+      )}
+      style={{ "--glow-pos": glowPosition } as CSSProperties}
+      whileHover={{ y: -4, scale: 1.01 }}
+      whileTap={{ y: -1, scale: 0.995 }}
+      transition={{ type: "spring", stiffness: 300, damping: 24 }}
+    >
+      <Tag className="relative z-10 h-full">{children}</Tag>
+    </motion.div>
+  );
+}
+</file>
+
+<file path="app/components/Contact.tsx">
+import { Reveal } from "./Reveal";
+
+export function Contact() {
+  return (
+    <section id="contact" className="px-6 py-24 md:py-32">
+      <div className="mx-auto max-w-xl text-center">
+        <Reveal>
+          <h3 className="font-display text-3xl font-bold tracking-tight text-champagne sm:text-4xl">
+            Questions?
+          </h3>
+          <p className="mt-4 text-slate-400">
+            Call or text anytime. We&apos;ll get back to you within a few hours.
+          </p>
+          <p className="mt-2">
+            <a
+              href="tel:226-577-9768"
+              className="font-semibold text-champagne underline decoration-white/20 underline-offset-4 transition-colors hover:text-gold"
+            >
+              226 577 9768
+            </a>
+          </p>
+          <p className="mt-6 text-sm text-slate-500">
+            Based in London, Ontario &middot; 24-hour turnaround &middot; 100% satisfaction
+          </p>
+        </Reveal>
+      </div>
+    </section>
+  );
+}
+</file>
+
+<file path="app/components/Footer.tsx">
+import Link from "next/link";
+
+export function Footer() {
+  return (
+    <footer className="border-t border-white/10 px-6 py-10 text-center text-sm text-slate-500">
+      <p>&copy; 2026 PropertyWalk. All rights reserved.</p>
+      <p className="mt-2">
+        <Link href="/agent-portal" className="underline decoration-white/20 underline-offset-4 hover:text-champagne">
+          Agent Portal
+        </Link>
+      </p>
+    </footer>
+  );
+}
+</file>
+
+<file path="app/components/Hero.tsx">
+"use client";
+
+import { motion, useReducedMotion, type Variants } from "framer-motion";
+import Link from "next/link";
+
+const container: Variants = {
+  hidden: {},
+  show: {
+    transition: { staggerChildren: 0.12, delayChildren: 0.1 },
+  },
+};
+
+const item: Variants = {
+  hidden: { opacity: 0, y: 24 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: { type: "spring", stiffness: 220, damping: 26 },
+  },
+};
+
+export function Hero() {
+  const reduced = useReducedMotion();
+
+  return (
+    <section className="relative flex min-h-[90vh] items-center justify-center overflow-hidden border-b border-white/10 px-6 py-24 text-center">
+      <div
+        className="pointer-events-none absolute inset-0 bg-[url('https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?q=80&w=2500&auto=format&fit=crop')] bg-cover bg-center opacity-15 mix-blend-luminosity"
+        aria-hidden="true"
+      />
+      <div
+        className="pointer-events-none absolute inset-0"
+        style={{
+          background:
+            "radial-gradient(ellipse 65% 55% at 50% 35%, transparent 0%, #020617 88%)",
+        }}
+        aria-hidden="true"
+      />
+      <div
+        className="pointer-events-none absolute -top-1/4 left-1/2 h-[700px] w-[min(1100px,140vw)] -translate-x-1/2"
+        style={{
+          background:
+            "radial-gradient(ellipse 50% 50% at 50% 0%, rgba(226,185,110,0.25), transparent 70%)",
+        }}
+        aria-hidden="true"
+      />
+
+      <motion.div
+        variants={reduced ? undefined : container}
+        initial={reduced ? undefined : "hidden"}
+        animate={reduced ? undefined : "show"}
+        className="relative z-10 mx-auto max-w-3xl"
+      >
+        <motion.div
+          variants={reduced ? undefined : item}
+          className="glass mb-8 inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-[0.08em] text-slate-300"
+        >
+          <span className="relative flex h-1.5 w-1.5">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-500 opacity-75" />
+            <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-500" />
+          </span>
+          24-Hour Turnaround &middot; London, Ontario
+        </motion.div>
+
+        <motion.h1
+          variants={reduced ? undefined : item}
+          className="font-display text-5xl font-bold leading-[1.05] tracking-tight text-champagne sm:text-6xl md:text-7xl"
+        >
+          PropertyWalk
+        </motion.h1>
+
+        <motion.p
+          variants={reduced ? undefined : item}
+          className="mx-auto mt-6 max-w-md text-lg text-slate-300 sm:text-xl"
+        >
+          Professional Property Walkthrough Videos
+        </motion.p>
+
+        <motion.div variants={reduced ? undefined : item} className="mt-10">
+          <motion.div
+            className="inline-block"
+            whileHover={{ y: -4, scale: 1.02 }}
+            whileTap={{ y: -1, scale: 0.98 }}
+            transition={{ type: "spring", stiffness: 300, damping: 22 }}
+          >
+            <Link
+              href="/booking"
+              className="inline-flex items-center rounded-lg bg-gold px-8 py-4 font-semibold text-slate-950 transition-shadow hover:shadow-[0_0_20px_rgba(226,185,110,0.6)]"
+            >
+              Get Your Video
+            </Link>
+          </motion.div>
+        </motion.div>
+      </motion.div>
+    </section>
+  );
+}
+</file>
+
+<file path="app/components/HowItWorks.tsx">
+import { Upload, Video, Download } from "lucide-react";
+import { Reveal } from "./Reveal";
+import { BentoCard } from "./BentoCard";
+
+const steps = [
+  {
+    icon: Upload,
+    photo:
+      "https://images.unsplash.com/photo-1564078516393-cf04bd966897?q=80&w=1200&auto=format&fit=crop",
+    index: "01",
+    title: "You Send Photos",
+    body: "Upload 5-8 high-quality photos from your Airbnb, MLS listing, or property. Email, Google Drive, Dropbox, whatever works.",
+  },
+  {
+    icon: Video,
+    photo:
+      "https://images.unsplash.com/photo-1502005229762-cf1b2da7c5d6?q=80&w=1200&auto=format&fit=crop",
+    index: "02",
+    title: "We Generate Video",
+    body: "We create a smooth, professional walkthrough with cinematic movement. 24-hour turnaround.",
+  },
+  {
+    icon: Download,
+    photo:
+      "https://images.unsplash.com/photo-1600210491892-03d54c0aaf87?q=80&w=1200&auto=format&fit=crop",
+    index: "03",
+    title: "Download & Use",
+    body: "Get a download link. Use it on Airbnb, Instagram, Facebook, your listing, anywhere. You own the video.",
+  },
+];
+
+export function HowItWorks() {
+  return (
+    <section id="how-it-works" className="border-b border-white/10 px-6 py-24 md:py-32">
+      <div className="mx-auto max-w-6xl">
+        <Reveal>
+          <h2 className="font-display text-3xl font-bold tracking-tight text-champagne sm:text-4xl md:text-5xl">
+            How It Works
+          </h2>
+        </Reveal>
+
+        <div className="mt-12 grid grid-cols-1 gap-6 md:grid-cols-3">
+          {steps.map((step, i) => (
+            <Reveal key={step.title} delay={i * 0.1}>
+              <BentoCard glowPosition="20% -10%" className="h-full">
+                <div
+                  className="pointer-events-none absolute inset-0 bg-cover bg-center opacity-15 mix-blend-luminosity"
+                  style={{ backgroundImage: `url('${step.photo}')` }}
+                  aria-hidden="true"
+                />
+                <div className="relative z-10 flex h-full flex-col p-8">
+                  <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-lg border border-white/12 bg-white/5 text-champagne">
+                    <step.icon className="h-6 w-6" strokeWidth={1.5} />
+                  </div>
+                  <span className="mb-2 text-sm font-semibold tracking-[0.1em] text-slate-400">
+                    {step.index}
+                  </span>
+                  <h3 className="mb-2 text-xl font-bold tracking-tight text-champagne">
+                    {step.title}
+                  </h3>
+                  <p className="text-slate-400">{step.body}</p>
+                </div>
+              </BentoCard>
+            </Reveal>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+</file>
+
+<file path="app/components/Nav.tsx">
+"use client";
+
+import Link from "next/link";
+import { motion } from "framer-motion";
+
+export function Nav() {
+  return (
+    <header className="glass sticky top-0 z-50 h-18 border-b border-white/10">
+      <div className="mx-auto flex h-full max-w-6xl items-center justify-between px-6">
+        <Link
+          href="/"
+          className="font-body text-sm font-semibold tracking-[0.2em] text-champagne uppercase"
+        >
+          PropertyWalk
+        </Link>
+        <motion.div whileHover={{ y: -2, scale: 1.02 }} whileTap={{ y: 0, scale: 0.98 }}>
+          <Link
+            href="/booking"
+            className="inline-flex items-center rounded-lg border border-white/15 px-4 py-2 text-sm font-semibold text-champagne transition-colors hover:border-gold/60 hover:bg-gold hover:text-slate-950"
+          >
+            Order Now
+          </Link>
+        </motion.div>
+      </div>
+    </header>
+  );
+}
+</file>
+
+<file path="app/components/PricingModal.tsx">
+"use client";
+
+import { motion } from "framer-motion";
+import { Check, X } from "lucide-react";
+import Link from "next/link";
+import { useEffect } from "react";
+
+export type PricingPlan = {
+  id: "starter" | "pro";
+  name: string;
+  price: string;
+  tagline: string;
+  features: string[];
+};
+
+export function PricingModal({
+  plan,
+  onClose,
+}: {
+  plan: PricingPlan | null;
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    if (!plan) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    document.addEventListener("keydown", onKey);
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = "";
+    };
+  }, [plan, onClose]);
+
+  return (
+    <>
+      {plan && (
+        <motion.div
+          key="pricing-modal-backdrop"
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-6 backdrop-blur-sm"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          onClick={onClose}
+          role="presentation"
+        >
+          <motion.div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="pricing-modal-title"
+            className="glass-gold relative w-full max-w-md overflow-hidden rounded-2xl p-8"
+            style={{ "--glow-pos": "80% -10%" } as React.CSSProperties}
+            initial={{ opacity: 0, y: 24, scale: 0.97 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            transition={{ type: "spring", stiffness: 300, damping: 28 }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={onClose}
+              aria-label="Close breakdown"
+              className="absolute right-5 top-5 z-10 text-slate-400 transition-colors hover:text-champagne"
+            >
+              <X className="h-5 w-5" />
+            </button>
+
+            <span className="text-sm font-semibold uppercase tracking-[0.1em] text-slate-400">
+              {plan.name} plan
+            </span>
+            <h3
+              id="pricing-modal-title"
+              className="text-shine font-display mt-1 text-4xl font-bold"
+            >
+              {plan.price}
+            </h3>
+            <p className="mt-2 text-slate-400">{plan.tagline}</p>
+
+            <ul className="mt-6 flex flex-col gap-3 border-t border-white/10 pt-6">
+              {plan.features.map((f) => (
+                <li key={f} className="flex items-start gap-3 text-slate-300">
+                  <Check className="mt-0.5 h-4 w-4 flex-shrink-0 text-gold" strokeWidth={2} />
+                  {f}
+                </li>
+              ))}
+            </ul>
+
+            <motion.div
+              className="mt-8"
+              whileHover={{ y: -2, scale: 1.01 }}
+              whileTap={{ y: 0, scale: 0.98 }}
+            >
+              <Link
+                href={`/booking?plan=${plan.id}`}
+                className="flex w-full items-center justify-center rounded-lg bg-gold px-6 py-4 font-semibold text-slate-950 transition-shadow hover:shadow-[0_0_20px_rgba(226,185,110,0.6)]"
+              >
+                Order Now
+              </Link>
+            </motion.div>
+          </motion.div>
+        </motion.div>
+      )}
+    </>
+  );
+}
+</file>
+
+<file path="app/components/PricingSection.tsx">
+"use client";
+
+import { useState } from "react";
+import { motion } from "framer-motion";
+import { Check, Minus, Plus } from "lucide-react";
+import Link from "next/link";
+import { Reveal } from "./Reveal";
+import { BentoCard } from "./BentoCard";
+import { PricingModal, type PricingPlan } from "./PricingModal";
+
+const STARTER_PRICE = 49;
+const PRO_PRICE = 89;
+const PRO_VIDEOS = 2;
+
+const plans: PricingPlan[] = [
+  {
+    id: "starter",
+    name: "Starter",
+    price: "$49",
+    tagline: "5 Photos → 1 Video",
+    features: [
+      "5 photos in, 1 video out",
+      "24-hour turnaround",
+      "You own the video",
+      "Perfect for one listing or property",
+    ],
+  },
+  {
+    id: "pro",
+    name: "Pro",
+    price: "$89",
+    tagline: "10 Photos → 2 Videos",
+    features: [
+      "10 photos in, 2 videos out",
+      "24-hour turnaround",
+      "You own every video",
+      "Two properties, or multiple edits of the same property",
+    ],
+  },
+];
+
+export function PricingSection() {
+  const [activePlan, setActivePlan] = useState<PricingPlan | null>(null);
+  const [properties, setProperties] = useState(1);
+
+  const starterTotal = properties * STARTER_PRICE;
+  const proBundles = Math.ceil(properties / PRO_VIDEOS);
+  const proTotal = proBundles * PRO_PRICE;
+  const worthSwitching = properties >= 2 && proTotal < starterTotal;
+
+  return (
+    <section id="pricing" className="border-b border-white/10 px-6 py-24 md:py-32">
+      <div className="mx-auto max-w-6xl">
+        <Reveal>
+          <h2 className="font-display text-3xl font-bold tracking-tight text-champagne sm:text-4xl md:text-5xl">
+            Simple Pricing
+          </h2>
+        </Reveal>
+
+        {/* Dynamic estimator: recalculates against both tiers as you change volume */}
+        <Reveal delay={0.05}>
+          <div className="glass mt-8 flex flex-col items-start gap-4 rounded-2xl p-6 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="font-semibold text-champagne">How many properties this month?</p>
+              <p className="text-sm text-slate-400">
+                We&apos;ll estimate your total on Starter vs. Pro pricing.
+              </p>
+            </div>
+            <div className="flex items-center gap-4">
+              <button
+                onClick={() => setProperties((n) => Math.max(1, n - 1))}
+                aria-label="Decrease properties"
+                className="flex h-9 w-9 items-center justify-center rounded-full border border-white/15 text-champagne transition-colors hover:border-gold/60"
+              >
+                <Minus className="h-4 w-4" />
+              </button>
+              <motion.span
+                key={properties}
+                initial={{ opacity: 0, y: -6 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="w-6 text-center font-display text-xl font-bold text-champagne"
+              >
+                {properties}
+              </motion.span>
+              <button
+                onClick={() => setProperties((n) => Math.min(20, n + 1))}
+                aria-label="Increase properties"
+                className="flex h-9 w-9 items-center justify-center rounded-full border border-white/15 text-champagne transition-colors hover:border-gold/60"
+              >
+                <Plus className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="text-right">
+              <p className="text-sm text-slate-400">
+                Starter: <span className="text-champagne">${starterTotal}</span>
+              </p>
+              <p className="text-sm text-slate-400">
+                Pro: <span className="text-champagne">${proTotal}</span>
+                {worthSwitching && (
+                  <span className="ml-2 text-gold">cheaper on Pro</span>
+                )}
+              </p>
+            </div>
+          </div>
+        </Reveal>
+
+        <div className="mt-8 grid grid-cols-1 gap-6 md:grid-cols-2">
+          {plans.map((plan, i) => (
+            <Reveal key={plan.name} delay={i * 0.1}>
+              <BentoCard glowPosition="15% -10%" className="h-full">
+                <div className="flex h-full flex-col p-8">
+                  <h3 className="text-xl font-bold text-champagne">{plan.name}</h3>
+                  <div className="text-shine font-display mt-2 mb-6 text-4xl font-bold sm:text-5xl">
+                    {plan.price}
+                  </div>
+                  <ul className="mb-6 flex flex-1 flex-col gap-3">
+                    {plan.features.slice(0, 3).map((f) => (
+                      <li key={f} className="flex items-start gap-3 text-sm text-slate-400">
+                        <Check className="mt-0.5 h-[18px] w-[18px] flex-shrink-0 text-gold" strokeWidth={2} />
+                        {f}
+                      </li>
+                    ))}
+                  </ul>
+                  <div className="flex flex-col gap-3">
+                    <motion.div whileHover={{ y: -2, scale: 1.01 }} whileTap={{ y: 0, scale: 0.98 }}>
+                      <Link
+                        href={`/booking?plan=${plan.id}`}
+                        className="flex w-full items-center justify-center rounded-lg bg-gold px-6 py-4 font-semibold text-slate-950 transition-shadow hover:shadow-[0_0_20px_rgba(226,185,110,0.6)]"
+                      >
+                        Order Now
+                      </Link>
+                    </motion.div>
+                    <button
+                      onClick={() => setActivePlan(plan)}
+                      className="text-sm font-semibold text-slate-400 underline decoration-white/20 underline-offset-4 transition-colors hover:text-champagne"
+                    >
+                      View full breakdown
+                    </button>
+                  </div>
+                </div>
+              </BentoCard>
+            </Reveal>
+          ))}
+        </div>
+      </div>
+
+      <PricingModal plan={activePlan} onClose={() => setActivePlan(null)} />
+    </section>
+  );
+}
+</file>
+
+<file path="app/components/Reveal.tsx">
+"use client";
+
+import { motion, useReducedMotion } from "framer-motion";
+import type { ReactNode } from "react";
+
+export function Reveal({
+  children,
+  delay = 0,
+  className,
+}: {
+  children: ReactNode;
+  delay?: number;
+  className?: string;
+}) {
+  const reduced = useReducedMotion();
+
+  return (
+    <motion.div
+      className={className}
+      initial={reduced ? false : { opacity: 0, y: 24 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, amount: 0.2 }}
+      transition={{ duration: 0.7, delay, ease: [0.16, 1, 0.3, 1] }}
+    >
+      {children}
+    </motion.div>
+  );
+}
+</file>
+
+<file path="app/components/Testimonial.tsx">
+import { Reveal } from "./Reveal";
+
+export function Testimonial() {
+  return (
+    <section className="border-b border-white/10 px-6 py-24 md:py-32">
+      <div className="mx-auto max-w-2xl">
+        {/* Update with real customer feedback */}
+        <Reveal>
+          <div
+            className="glass-gold relative overflow-hidden rounded-2xl border-l-2 border-l-gold p-8 shadow-[0_0_16px_rgba(226,185,110,0.25)]"
+            style={{ "--glow-pos": "90% -20%" } as React.CSSProperties}
+          >
+            <div
+              className="pointer-events-none absolute inset-0 bg-cover opacity-[0.14] mix-blend-luminosity"
+              style={{
+                backgroundImage:
+                  "url('https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?q=80&w=1600&auto=format&fit=crop')",
+                backgroundPosition: "center 75%",
+              }}
+              aria-hidden="true"
+            />
+            <div className="relative z-10 pl-2">
+              <blockquote className="font-display text-xl font-medium leading-tight text-champagne sm:text-2xl">
+                This just sold my property 10x faster. Buyers could actually see the flow
+                of the house instead of guessing from static photos. Worth every penny.
+              </blockquote>
+              <p className="mt-6 text-sm font-semibold text-slate-400">
+                Sarah M., Real Estate Agent, London ON
+              </p>
+            </div>
+          </div>
+        </Reveal>
+      </div>
+    </section>
+  );
+}
+</file>
+
+<file path="app/components/VideoPreviewBuilder.tsx">
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
+import { ImagePlus, Loader2, Play, RotateCcw, X } from "lucide-react";
+import Link from "next/link";
+import { Reveal } from "./Reveal";
+
+type Stage = "empty" | "staged" | "processing" | "ready";
+
+const MAX_PHOTOS = 8;
+
+export function VideoPreviewBuilder() {
+  const [photos, setPhotos] = useState<{ url: string; name: string }[]>([]);
+  const [stage, setStage] = useState<Stage>("empty");
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // Revoke object URLs on change/unmount so this doesn't leak memory as photos are swapped in and out.
+  useEffect(() => {
+    return () => {
+      photos.forEach((p) => URL.revokeObjectURL(p.url));
+    };
+  }, [photos]);
+
+  function handleFiles(fileList: FileList | null) {
+    if (!fileList || fileList.length === 0) return;
+    const files = Array.from(fileList)
+      .filter((f) => f.type.startsWith("image/"))
+      .slice(0, MAX_PHOTOS);
+    const next = files.map((f) => ({ url: URL.createObjectURL(f), name: f.name }));
+    setPhotos(next);
+    setStage(next.length > 0 ? "staged" : "empty");
+  }
+
+  function reset() {
+    setPhotos([]);
+    setStage("empty");
+    if (inputRef.current) inputRef.current.value = "";
+  }
+
+  function runPreview() {
+    setStage("processing");
+    // Client-side only: this simulates the pacing of a render, it does not call any video generation service.
+    window.setTimeout(() => setStage("ready"), 2200);
+  }
+
+  return (
+    <section id="preview" className="border-b border-white/10 px-6 py-24 md:py-32">
+      <div className="mx-auto max-w-5xl">
+        <Reveal>
+          <h2 className="font-display text-3xl font-bold tracking-tight text-champagne sm:text-4xl md:text-5xl">
+            Try the Preview Builder
+          </h2>
+          <p className="mt-4 max-w-xl text-lg text-slate-400">
+            Drop in a few photos to see how your walkthrough will be staged. This is a
+            visual preview, not the final render, your real video comes back in 24 hours.
+          </p>
+        </Reveal>
+
+        <Reveal delay={0.1}>
+          <div className="glass-gold relative mt-10 overflow-hidden rounded-2xl p-8">
+            <input
+              ref={inputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              className="hidden"
+              onChange={(e) => handleFiles(e.target.files)}
+            />
+
+            <AnimatePresence mode="wait">
+              {stage === "empty" && (
+                <motion.button
+                  key="empty"
+                  type="button"
+                  onClick={() => inputRef.current?.click()}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  whileHover={{ scale: 1.01 }}
+                  whileTap={{ scale: 0.99 }}
+                  className="flex w-full flex-col items-center justify-center gap-4 rounded-xl border border-dashed border-white/20 py-16 text-center transition-colors hover:border-gold/50"
+                >
+                  <ImagePlus className="h-10 w-10 text-slate-400" strokeWidth={1.5} />
+                  <span className="text-champagne font-semibold">
+                    Click to select listing photos
+                  </span>
+                  <span className="text-sm text-slate-500">
+                    Up to {MAX_PHOTOS} images, staged locally in your browser
+                  </span>
+                </motion.button>
+              )}
+
+              {stage === "staged" && (
+                <motion.div
+                  key="staged"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                >
+                  <div className="mb-6 grid grid-cols-3 gap-3 sm:grid-cols-4">
+                    {photos.map((p, i) => (
+                      <motion.div
+                        key={p.url}
+                        initial={{ opacity: 0, scale: 0.9 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ delay: i * 0.05, type: "spring", stiffness: 260, damping: 22 }}
+                        className="relative aspect-square overflow-hidden rounded-lg border border-white/10"
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={p.url}
+                          alt={`Listing photo ${i + 1}`}
+                          className="h-full w-full object-cover"
+                        />
+                      </motion.div>
+                    ))}
+                  </div>
+                  <div className="flex flex-wrap gap-3">
+                    <motion.button
+                      whileHover={{ y: -2, scale: 1.02 }}
+                      whileTap={{ y: 0, scale: 0.98 }}
+                      onClick={runPreview}
+                      className="inline-flex items-center gap-2 rounded-lg bg-gold px-6 py-3 font-semibold text-slate-950 transition-shadow hover:shadow-[0_0_20px_rgba(226,185,110,0.6)]"
+                    >
+                      <Play className="h-4 w-4" strokeWidth={2} />
+                      Stage Preview
+                    </motion.button>
+                    <button
+                      onClick={reset}
+                      className="inline-flex items-center gap-2 rounded-lg border border-white/15 px-6 py-3 font-semibold text-slate-300 transition-colors hover:border-white/30"
+                    >
+                      <X className="h-4 w-4" strokeWidth={2} />
+                      Clear
+                    </button>
+                  </div>
+                </motion.div>
+              )}
+
+              {stage === "processing" && (
+                <motion.div
+                  key="processing"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="flex flex-col items-center justify-center gap-4 py-16 text-center"
+                >
+                  <Loader2 className="h-10 w-10 animate-spin text-gold" strokeWidth={1.5} />
+                  <span className="text-champagne font-semibold">Staging your preview&hellip;</span>
+                </motion.div>
+              )}
+
+              {stage === "ready" && (
+                <motion.div
+                  key="ready"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="flex flex-col items-center gap-6 py-6 text-center"
+                >
+                  <div className="relative mx-auto w-full max-w-[220px] overflow-hidden rounded-[28px] border border-white/25 bg-black shadow-[0_0_60px_rgba(226,185,110,0.25)]">
+                    <div className="relative aspect-[9/16] w-full">
+                      {photos[0] && (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={photos[0].url}
+                          alt="Staged preview frame"
+                          className="h-full w-full object-cover opacity-70"
+                        />
+                      )}
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <div className="flex h-16 w-16 items-center justify-center rounded-full border border-white/30 bg-white/10 backdrop-blur">
+                          <Play className="h-6 w-6 translate-x-0.5 text-champagne" strokeWidth={2} />
+                        </div>
+                      </div>
+                      <span className="glass absolute left-4 top-4 rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-[0.1em] text-champagne">
+                        Preview
+                      </span>
+                    </div>
+                  </div>
+                  <p className="max-w-sm text-sm text-slate-400">
+                    That&apos;s the staging order your video will follow. Order now and we&apos;ll
+                    deliver the real cinematic walkthrough within 24 hours.
+                  </p>
+                  <div className="flex flex-wrap justify-center gap-3">
+                    <motion.div whileHover={{ y: -2, scale: 1.02 }} whileTap={{ y: 0, scale: 0.98 }}>
+                      <Link
+                        href="/booking"
+                        className="inline-flex items-center rounded-lg bg-gold px-6 py-3 font-semibold text-slate-950 transition-shadow hover:shadow-[0_0_20px_rgba(226,185,110,0.6)]"
+                      >
+                        Order This Video
+                      </Link>
+                    </motion.div>
+                    <button
+                      onClick={reset}
+                      className="inline-flex items-center gap-2 rounded-lg border border-white/15 px-6 py-3 font-semibold text-slate-300 transition-colors hover:border-white/30"
+                    >
+                      <RotateCcw className="h-4 w-4" strokeWidth={2} />
+                      Start Over
+                    </button>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        </Reveal>
+      </div>
+    </section>
+  );
+}
+</file>
+
+<file path="app/globals.css">
+@import "tailwindcss";
+
+@theme {
+  --color-champagne: #f4efe6;
+  --color-gold: #e2b96e;
+  --color-gold-bright: #ffffff;
+  --font-display: var(--font-satoshi), "Space Grotesk", sans-serif;
+  --font-body: var(--font-jakarta), sans-serif;
+}
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  color: var(--color-champagne);
+  font-family: var(--font-body);
+}
+
+/* Fixed ambient mesh behind the whole app: two floating radial glows over bg-slate-950 */
+.ambient-mesh {
+  position: fixed;
+  inset: 0;
+  z-index: -10;
+  pointer-events: none;
+  background-image:
+    radial-gradient(ellipse 900px 700px at 12% 8%, rgba(30, 41, 59, 0.4), transparent 60%),
+    radial-gradient(ellipse 1000px 800px at 88% 92%, rgba(59, 130, 246, 0.1), transparent 60%);
+}
+
+/* Reusable glass + glass-gold surfaces, shared by nav, badges and bento cards */
+.glass {
+  background:
+    linear-gradient(rgba(19, 27, 42, 0.55), rgba(19, 27, 42, 0.55)) padding-box,
+    linear-gradient(180deg, rgba(255, 255, 255, 0.35), rgba(255, 255, 255, 0)) border-box;
+  border: 1px solid transparent;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+.glass-gold {
+  background:
+    radial-gradient(circle at var(--glow-pos, 20% -10%), rgba(226, 185, 110, 0.12), transparent 45%) padding-box,
+    linear-gradient(rgba(19, 27, 42, 0.55), rgba(19, 27, 42, 0.55)) padding-box,
+    linear-gradient(180deg, rgba(255, 255, 255, 0.35), rgba(255, 255, 255, 0)) border-box;
+  border: 1px solid transparent;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+.glass-gold-hover:hover {
+  box-shadow:
+    0 0 48px rgba(226, 185, 110, 0.25),
+    inset 0 0 0 1px rgba(226, 185, 110, 0.2);
+}
+
+.text-shine {
+  background: linear-gradient(180deg, #ffffff 0%, #e2b96e 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+</file>
+
+<file path="app/layout.tsx">
+import type { Metadata, Viewport } from "next";
+import { Plus_Jakarta_Sans } from "next/font/google";
+import "./globals.css";
+
+const jakarta = Plus_Jakarta_Sans({
+  variable: "--font-jakarta",
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+});
+
+export const metadata: Metadata = {
+  title: "PropertyWalk - Property Walkthrough Videos | $49, 24-Hour Turnaround",
+  description:
+    "Property walkthrough videos for real estate agents and Airbnb hosts. $49 a video, 24-hour turnaround. Based in London, Ontario.",
+};
+
+export const viewport: Viewport = {
+  themeColor: "#020617",
+};
+
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
+  return (
+    <html lang="en" className={`${jakarta.variable} dark`}>
+      <head>
+        {/* Satoshi isn't on Google Fonts, so it can't go through next/font/google like Jakarta does above. */}
+        <link rel="preconnect" href="https://api.fontshare.com" />
+        <link
+          href="https://api.fontshare.com/v2/css?f[]=satoshi@700,800,900&display=swap"
+          rel="stylesheet"
+        />
+      </head>
+      <body className="bg-slate-950 antialiased">
+        <div className="ambient-mesh" aria-hidden="true" />
+        {children}
+      </body>
+    </html>
+  );
+}
+</file>
+
+<file path="app/page.tsx">
+import { Nav } from "./components/Nav";
+import { Hero } from "./components/Hero";
+import { HowItWorks } from "./components/HowItWorks";
+import { PricingSection } from "./components/PricingSection";
+import { Testimonial } from "./components/Testimonial";
+import { Contact } from "./components/Contact";
+import { Footer } from "./components/Footer";
+
+export default function Home() {
+  return (
+    <>
+      <Nav />
+      <main>
+        <Hero />
+        <HowItWorks />
+        <PricingSection />
+        <Testimonial />
+        <Contact />
+      </main>
+      <Footer />
+    </>
+  );
+}
+</file>
+
+<file path="lib/stripe.ts">
+import Stripe from "stripe";
+
+let stripeClient: Stripe | null = null;
+
+// Lazily constructed so the app can still build/render without STRIPE_SECRET_KEY set;
+// it only throws when a checkout is actually attempted.
+export function getStripe(): Stripe {
+  if (!stripeClient) {
+    const key = process.env.STRIPE_SECRET_KEY;
+    if (!key) {
+      throw new Error(
+        "STRIPE_SECRET_KEY is not set. Add it to .env.local (see .env.example)."
+      );
+    }
+    stripeClient = new Stripe(key);
+  }
+  return stripeClient;
+}
+
+export const STRIPE_PRICE_IDS = {
+  starter: process.env.STRIPE_PRICE_STARTER ?? "",
+  pro: process.env.STRIPE_PRICE_PRO ?? "",
+} as const;
+
+export type PlanId = keyof typeof STRIPE_PRICE_IDS;
+</file>
+
+<file path="lib/utils.ts">
+import { clsx, type ClassValue } from "clsx";
+import { twMerge } from "tailwind-merge";
+
+export function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs));
+}
+</file>
+
+<file path="public/file.svg">
+<svg fill="none" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg"><path d="M14.5 13.5V5.41a1 1 0 0 0-.3-.7L9.8.29A1 1 0 0 0 9.08 0H1.5v13.5A2.5 2.5 0 0 0 4 16h8a2.5 2.5 0 0 0 2.5-2.5m-1.5 0v-7H8v-5H3v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1M9.5 5V2.12L12.38 5zM5.13 5h-.62v1.25h2.12V5zm-.62 3h7.12v1.25H4.5zm.62 3h-.62v1.25h7.12V11z" clip-rule="evenodd" fill="#666" fill-rule="evenodd"/></svg>
+</file>
+
+<file path="public/globe.svg">
+<svg fill="none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><g clip-path="url(#a)"><path fill-rule="evenodd" clip-rule="evenodd" d="M10.27 14.1a6.5 6.5 0 0 0 3.67-3.45q-1.24.21-2.7.34-.31 1.83-.97 3.1M8 16A8 8 0 1 0 8 0a8 8 0 0 0 0 16m.48-1.52a7 7 0 0 1-.96 0H7.5a4 4 0 0 1-.84-1.32q-.38-.89-.63-2.08a40 40 0 0 0 3.92 0q-.25 1.2-.63 2.08a4 4 0 0 1-.84 1.31zm2.94-4.76q1.66-.15 2.95-.43a7 7 0 0 0 0-2.58q-1.3-.27-2.95-.43a18 18 0 0 1 0 3.44m-1.27-3.54a17 17 0 0 1 0 3.64 39 39 0 0 1-4.3 0 17 17 0 0 1 0-3.64 39 39 0 0 1 4.3 0m1.1-1.17q1.45.13 2.69.34a6.5 6.5 0 0 0-3.67-3.44q.65 1.26.98 3.1M8.48 1.5l.01.02q.41.37.84 1.31.38.89.63 2.08a40 40 0 0 0-3.92 0q.25-1.2.63-2.08a4 4 0 0 1 .85-1.32 7 7 0 0 1 .96 0m-2.75.4a6.5 6.5 0 0 0-3.67 3.44 29 29 0 0 1 2.7-.34q.31-1.83.97-3.1M4.58 6.28q-1.66.16-2.95.43a7 7 0 0 0 0 2.58q1.3.27 2.95.43a18 18 0 0 1 0-3.44m.17 4.71q-1.45-.12-2.69-.34a6.5 6.5 0 0 0 3.67 3.44q-.65-1.27-.98-3.1" fill="#666"/></g><defs><clipPath id="a"><path fill="#fff" d="M0 0h16v16H0z"/></clipPath></defs></svg>
+</file>
+
+<file path="public/next.svg">
+<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 394 80"><path fill="#000" d="M262 0h68.5v12.7h-27.2v66.6h-13.6V12.7H262V0ZM149 0v12.7H94v20.4h44.3v12.6H94v21h55v12.6H80.5V0h68.7zm34.3 0h-17.8l63.8 79.4h17.9l-32-39.7 32-39.6h-17.9l-23 28.6-23-28.6zm18.3 56.7-9-11-27.1 33.7h17.8l18.3-22.7z"/><path fill="#000" d="M81 79.3 17 0H0v79.3h13.6V17l50.2 62.3H81Zm252.6-.4c-1 0-1.8-.4-2.5-1s-1.1-1.6-1.1-2.6.3-1.8 1-2.5 1.6-1 2.6-1 1.8.3 2.5 1a3.4 3.4 0 0 1 .6 4.3 3.7 3.7 0 0 1-3 1.8zm23.2-33.5h6v23.3c0 2.1-.4 4-1.3 5.5a9.1 9.1 0 0 1-3.8 3.5c-1.6.8-3.5 1.3-5.7 1.3-2 0-3.7-.4-5.3-1s-2.8-1.8-3.7-3.2c-.9-1.3-1.4-3-1.4-5h6c.1.8.3 1.6.7 2.2s1 1.2 1.6 1.5c.7.4 1.5.5 2.4.5 1 0 1.8-.2 2.4-.6a4 4 0 0 0 1.6-1.8c.3-.8.5-1.8.5-3V45.5zm30.9 9.1a4.4 4.4 0 0 0-2-3.3 7.5 7.5 0 0 0-4.3-1.1c-1.3 0-2.4.2-3.3.5-.9.4-1.6 1-2 1.6a3.5 3.5 0 0 0-.3 4c.3.5.7.9 1.3 1.2l1.8 1 2 .5 3.2.8c1.3.3 2.5.7 3.7 1.2a13 13 0 0 1 3.2 1.8 8.1 8.1 0 0 1 3 6.5c0 2-.5 3.7-1.5 5.1a10 10 0 0 1-4.4 3.5c-1.8.8-4.1 1.2-6.8 1.2-2.6 0-4.9-.4-6.8-1.2-2-.8-3.4-2-4.5-3.5a10 10 0 0 1-1.7-5.6h6a5 5 0 0 0 3.5 4.6c1 .4 2.2.6 3.4.6 1.3 0 2.5-.2 3.5-.6 1-.4 1.8-1 2.4-1.7a4 4 0 0 0 .8-2.4c0-.9-.2-1.6-.7-2.2a11 11 0 0 0-2.1-1.4l-3.2-1-3.8-1c-2.8-.7-5-1.7-6.6-3.2a7.2 7.2 0 0 1-2.4-5.7 8 8 0 0 1 1.7-5 10 10 0 0 1 4.3-3.5c2-.8 4-1.2 6.4-1.2 2.3 0 4.4.4 6.2 1.2 1.8.8 3.2 2 4.3 3.4 1 1.4 1.5 3 1.5 5h-5.8z"/></svg>
+</file>
+
+<file path="public/vercel.svg">
+<svg fill="none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1155 1000"><path d="m577.3 0 577.4 1000H0z" fill="#fff"/></svg>
+</file>
+
+<file path="public/window.svg">
+<svg fill="none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path fill-rule="evenodd" clip-rule="evenodd" d="M1.5 2.5h13v10a1 1 0 0 1-1 1h-11a1 1 0 0 1-1-1zM0 1h16v11.5a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 0 12.5zm3.75 4.5a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5M7 4.75a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0m1.75.75a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5" fill="#666"/></svg>
+</file>
+
+<file path=".gitignore">
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# dependencies
+/node_modules
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# testing
+/coverage
+
+# next.js
+/.next/
+/out/
+
+# production
+/build
+
+# misc
+.DS_Store
+*.pem
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# env files (can opt-in for committing if needed)
+.env*
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+</file>
+
+<file path="AGENTS.md">
+<!-- BEGIN:nextjs-agent-rules -->
+# This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` before writing any code. Heed deprecation notices.
+<!-- END:nextjs-agent-rules -->
+</file>
+
+<file path="CLAUDE.md">
+@AGENTS.md
+</file>
+
+<file path="eslint.config.mjs">
+import { defineConfig, globalIgnores } from "eslint/config";
+import nextVitals from "eslint-config-next/core-web-vitals";
+import nextTs from "eslint-config-next/typescript";
+
+const eslintConfig = defineConfig([
+  ...nextVitals,
+  ...nextTs,
+  // Override default ignores of eslint-config-next.
+  globalIgnores([
+    // Default ignores of eslint-config-next:
+    ".next/**",
+    "out/**",
+    "build/**",
+    "next-env.d.ts",
+  ]),
+]);
+
+export default eslintConfig;
+</file>
+
+<file path="next.config.ts">
+import type { NextConfig } from "next";
+
+const nextConfig: NextConfig = {
+  /* config options here */
+};
+
+export default nextConfig;
+</file>
+
+<file path="package.json">
+{
+  "name": "property-walk",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint"
+  },
+  "dependencies": {
+    "clsx": "^2.1.1",
+    "framer-motion": "^12.42.2",
+    "lucide-react": "^1.27.0",
+    "next": "16.2.12",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "stripe": "^22.3.2",
+    "tailwind-merge": "^3.6.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.2.12",
+    "tailwindcss": "^4",
+    "typescript": "^5"
+  }
+}
+</file>
+
+<file path="postcss.config.mjs">
+const config = {
+  plugins: {
+    "@tailwindcss/postcss": {},
+  },
+};
+
+export default config;
+</file>
+
+<file path="README.md">
+This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+
+## Getting Started
+
+First, run the development server:
+
+```bash
+npm run dev
+# or
+yarn dev
+# or
+pnpm dev
+# or
+bun dev
+```
+
+Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+
+You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+
+This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+
+## Learn More
+
+To learn more about Next.js, take a look at the following resources:
+
+- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
+- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+
+You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+
+## Deploy on Vercel
+
+The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+
+Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+</file>
+
+<file path="tsconfig.json">
+{
+  "compilerOptions": {
+    "target": "ES2017",
+    "lib": ["dom", "dom.iterable", "esnext"],
+    "allowJs": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "react-jsx",
+    "incremental": true,
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
+    "paths": {
+      "@/*": ["./*"]
+    }
+  },
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts",
+    ".next/dev/types/**/*.ts",
+    "**/*.mts"
+  ],
+  "exclude": ["node_modules"]
+}
+</file>
+
+</files>
